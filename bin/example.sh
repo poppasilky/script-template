@@ -81,13 +81,21 @@ TRAVEL_TIME=$(echo "scale=4; $DIST / $VELOCITY" | bc -l)
 RAW_ARRIVAL_AGE=$(echo "scale=4; $AGE + $TRAVEL_TIME" | bc -l)
 FINAL_AGE=$(printf "%.2f" "$RAW_ARRIVAL_AGE")
 
-# 6. Precise Date Manipulation (Bug Fix)
-# We convert fractional years to total days to ensure the 'date' command 
-# rolls the month and day forward correctly.
-DAYS_TOTAL=$(echo "$TRAVEL_TIME * 365.2425" | bc -l)
-DAYS_INT=$(printf "%.0f" "$DAYS_TOTAL")
+# --- 6. Precise Date Manipulation ---
+# 31556952 is the average seconds in a Gregorian year (including leap years)
+SECONDS_PER_YEAR="31556952"
 
-log "Precise Days calculated: $DAYS_TOTAL (Rounded: $DAYS_INT)"
+# We use 'bc' to get the total seconds, then 'printf' to ensure it's an integer
+TRAVEL_SECONDS_RAW=$(echo "$TRAVEL_TIME * $SECONDS_PER_YEAR" | bc -l)
+TRAVEL_SECONDS=$(printf "%.0f" "$TRAVEL_SECONDS_RAW")
+
+# '@' tells the date command to parse Unix seconds
+# We calculate the arrival by adding travel seconds to the current 'epoch' time
+ARRIVAL_EPOCH=$(echo "$(date +%s) + $TRAVEL_SECONDS" | bc)
+ARRIVAL_DATE=$(date -d "@$ARRIVAL_EPOCH" +"%B %d, %Y")
+
+DAYS_INT=$(echo "$TRAVEL_SECONDS / 86400" | bc)
+log "Travel Seconds: $TRAVEL_SECONDS | Days: $DAYS_INT"
 
 # Add the calculated days to the current date
 ARRIVAL_DATE=$(date -d "+$DAYS_INT days" +"%B %d, %Y")
