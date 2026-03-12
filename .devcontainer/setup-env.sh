@@ -1,64 +1,68 @@
 #!/bin/bash
-# ----------------------------------------------------------------------
-# setup-env.sh
+#
+# setup-env.sh - Environment Tethering & Permission Sync
 #
 # DESCRIPTION:
-#   Initializes the lab environment, configures permissions, and 
-#   tethers the local repository to the system shell (~/.bashrc).
+#   Configures the user's shell environment by tethering the repository
+#   to ~/.bashrc and ensuring all lab scripts are executable. This script
+#   is designed to be idempotent and portable across different machines.
 #
 # USAGE:
 #   ./.devcontainer/setup-env.sh
+#
 # ----------------------------------------------------------------------
 
-# 1. Define the absolute path to this repository
+# Capture the absolute path of the repository
 REPO_DIR=$(pwd)
 
-echo "--- 🛠️  Initializing Lab Environment ---"
+echo "--- 🛰️  Configuring Lab Workspace ---"
 
-# 2. Portable .bashrc Tethering
-# This block is injected into the user's ~/.bashrc.
-# It uses a guard clause to ensure it only runs if the directory exists.
-TETHER_BLOCK=$(cat <<EOF
+#######################################
+# Injects the portable REPO_ROOT and PATH logic into ~/.bashrc.
+#######################################
+tether_bashrc() {
+    local tether_block
+    
+    # This block only activates if the specific REPO_DIR exists on the system.
+    tether_block=$(cat <<EOF
 # --- Lab Environment Setup (Added $(date +'%Y-%m-%d')) ---
 if [ -d "$REPO_DIR" ]; then
     export REPO_ROOT="$REPO_DIR"
     export PATH="\$PATH:\$REPO_ROOT/bin"
-    # Source the repo-specific .bashrc for aliases and custom prompts
+    # Source the repo-local .bashrc for custom prompts and aliases
     [ -f "\$REPO_ROOT/.bashrc" ] && source "\$REPO_ROOT/.bashrc"
 fi
 # -------------------------------------------------------
 EOF
 )
 
-# Only append if the REPO_ROOT for this specific directory isn't already set
-if ! grep -q "REPO_ROOT=\"$REPO_DIR\"" ~/.bashrc; then
-    echo "$TETHER_BLOCK" >> ~/.bashrc
-    echo "✅ Success: Environment tethered to ~/.bashrc"
-else
-    echo "ℹ️  System: ~/.bashrc already tethered for this directory."
-fi
+    # Prevent duplicate entries in ~/.bashrc
+    if ! grep -q "REPO_ROOT=\"$REPO_DIR\"" ~/.bashrc; then
+        echo "$tether_block" >> ~/.bashrc
+        echo "✅ Success: Repository tethered to ~/.bashrc"
+    else
+        echo "ℹ️  System: ~/.bashrc is already configured."
+    fi
+}
 
-# 3. Global Command Setup (Symlinking)
-# This allows students to type 'repo.sh' from any directory.
-if [ -f "$REPO_DIR/bin/repo.sh" ]; then
-    sudo ln -sf "$REPO_DIR/bin/repo.sh" /usr/local/bin/repo.sh
-    echo "✅ Success: 'repo.sh' linked to /usr/local/bin"
-else
-    echo "⚠️  Warning: bin/repo.sh not found. Global command link skipped."
-fi
+#######################################
+# Synchronizes permissions for the entire bin/ directory.
+#######################################
+sync_bin_permissions() {
+    echo "🔧 Synchronizing script permissions..."
+    
+    if [ -d "$REPO_DIR/bin" ]; then
+        # Ensure every script in bin is ready to run
+        chmod ug+x "$REPO_DIR/bin/"*.sh
+        echo "✅ Success: All scripts in bin/ are now executable."
+    else
+        echo "⚠️  Warning: bin/ directory not found."
+    fi
+}
 
-# 4. Permission Synchronization
-# Sets execution bits for the student (user) and the vscode group.
-echo "🔧 Syncing permissions..."
-if [ -d "$REPO_DIR/bin" ]; then
-    chmod ug+x "$REPO_DIR/bin/"*.sh
-    echo "✅ Success: bin/*.sh marked as executable."
-fi
+# --- Execution ---
 
-# Ensure the lib directory is readable but not executable (Standard Security)
-if [ -d "$REPO_DIR/lib" ]; then
-    chmod ug-x "$REPO_DIR/lib/"*.sh 2>/dev/null
-    echo "✅ Success: lib/ permissions hardened."
-fi
+tether_bashrc
+sync_bin_permissions
 
-echo "--- ✅ Environment Initialization Complete ---"
+echo "--- ✅ Workspace Setup Complete ---"
