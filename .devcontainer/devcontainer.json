@@ -28,5 +28,5 @@
         "3306": { "label": "MariaDB (MySQL)" }
     },
     "postCreateCommand": "/bin/bash ./.devcontainer/install-tools.sh",
-    "postAttachCommand": "git pull && /bin/bash ./.devcontainer/setup-env.sh && . ./bin/repo.sh"
+    "postAttachCommand": "git pull && /bin/bash ./.devcontainer/setup-env.sh && source ~/.bashrc && . ./bin/repo.sh"
 }
